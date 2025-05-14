@@ -1,4 +1,3 @@
-from __future__ import annotations
 import h5py, numpy as np
 
 class Grid:
@@ -30,38 +29,36 @@ class Grid:
         return flat.reshape(grid_size, grid_size)
 
     def _next_generation(self) -> np.ndarray:
-        g = self.grid                         # bool
-        # cast to uint8 **before** summing so counts are 0…8
-        padded = np.pad(g, 1, constant_values=False).astype(np.uint8)   # (N+2, N+2)
+        g = self.grid # bool
+        padded = np.pad(g, 1, constant_values=False).astype(np.uint8) # (N+2, N+2)
 
         neigh = (
             padded[:-2, :-2] + padded[:-2, 1:-1] + padded[:-2, 2:] +
             padded[1:-1, :-2] +                    padded[1:-1, 2:] +
             padded[2:,  :-2] + padded[2:,  1:-1] + padded[2:,  2:]
-        )  # uint8 array of neighbour counts (shape N×N)
-
+        ) # uint8 array of neighbour counts (shape N×N)
         # apply Conway’s rules
         return (neigh == 3) | (g & (neigh == 2))
 
 
     def step(self) -> list[list[bool]]:
-        """Advance the board one tick and return it as a nested Python list (unchanged API)."""
         self.grid = self._next_generation()
         # only convert for caller compatibility; inside we stay NumPy
         return self.grid.tolist()
 
-    def gen_pair(self) -> tuple[np.ndarray, np.ndarray]:
-        """Return (current, next) as uint8 arrays suitable for ML datasets."""
-        cur = self.grid.astype(np.uint8, copy=False)
-        nxt = self._next_generation().astype(np.uint8, copy=False)
-        return cur, nxt
+    def gen_pair(self, N: int) -> tuple[np.ndarray, np.ndarray]:
+        start = self.grid.astype(np.uint8, copy=False)
+        for _ in range(N):
+            self.grid = self._next_generation()
+        return start, self.grid.astype(np.uint8, copy=False)
 
-def generate_pairs(size: int, start_range: tuple[int, int], n: int):
+
+def generate_pairs(N: int, size: int, start_range: tuple[int, int], n: int):
     rng = np.random.default_rng()
     for _ in range(n):
         n_start = rng.integers(*start_range, endpoint=False)
         g = Grid(size, random_init=True, starting_cells=n_start, rng=rng)
-        yield g.gen_pair()
+        yield g.gen_pair(N)
 
 def print_grid(grid: list[list[bool]]):
     output = ''
@@ -71,7 +68,7 @@ def print_grid(grid: list[list[bool]]):
         output += '\n'
     print(output)
 
-def save_to_hdf5(path: str, size: int, start_range: tuple[int, int], n: int):
+def save_to_hdf5(path: str, N: int, size: int, start_range: tuple[int, int], n: int):
     chunk_shape = (1, size, size)
     with h5py.File(path, "w-") as f:
         ds_x = f.create_dataset(
@@ -82,7 +79,7 @@ def save_to_hdf5(path: str, size: int, start_range: tuple[int, int], n: int):
             "Y", (n, size, size), "uint8", chunks=chunk_shape,
             compression="gzip", compression_opts=4
         )
-        for idx, (x, y) in enumerate(generate_pairs(size, start_range, n)):
+        for idx, (x, y) in enumerate(generate_pairs(N, size, start_range, n)):
             ds_x[idx:idx+1] = x[None]
             ds_y[idx:idx+1] = y[None]
             if idx % 100 == 0:
@@ -90,4 +87,4 @@ def save_to_hdf5(path: str, size: int, start_range: tuple[int, int], n: int):
     print("Done writing", path)
 
 if __name__ == "__main__":
-    save_to_hdf5("life_64.h5", size=64, start_range=(0, 64**2), n=1000)
+    save_to_hdf5("life_64.h5", N=5, size=64, start_range=(0, 64**2), n=5000)
