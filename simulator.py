@@ -1,86 +1,93 @@
 from __future__ import annotations
-import random, h5py, numpy as np
+import h5py, numpy as np
 
 class Grid:
     def __init__(
         self,
         grid_size: int,
-        grid: list[list[bool]] | None = None,
+        grid: np.ndarray | None = None,
+        *,
         random_init: bool = False,
         starting_cells: int = 0,
+        rng: np.random.Generator | None = None,
     ):
         self.grid_size = grid_size
+        self.rng = rng or np.random.default_rng()
         if random_init:
-            self.grid = Grid.init_random(grid_size, starting_cells)
+            self.grid = self.init_random(grid_size, starting_cells)
         else:
-            self.grid = grid or [[False]*grid_size for _ in range(grid_size)]
+            if grid is None:
+                self.grid = np.zeros((grid_size, grid_size), dtype=bool)
+            else:
+                self.grid = grid.astype(bool, copy=False)
 
-    @staticmethod
-    def init_random(grid_size: int, starting_cells: int) -> list[list[bool]]:
-        grid = [[False]*grid_size for _ in range(grid_size)]
-        for pos in random.sample(range(grid_size**2), starting_cells):
-            grid[pos // grid_size][pos % grid_size] = True
-        return grid
+    def init_random(self, grid_size: int, n_alive: int) -> np.ndarray:
+        """Return a boolean grid with exactly n_alive live cells (no Python loops)."""
+        flat = np.zeros(grid_size * grid_size, dtype=bool)
+        if n_alive:                                    # safe when n_alive = 0
+            idx = self.rng.choice(flat.size, n_alive, replace=False)
+            flat[idx] = True
+        return flat.reshape(grid_size, grid_size)
 
-    def _evaluate(self, row: int, col: int) -> bool:
-        cnt = 0
-        for i in range(max(row-1, 0), min(row+2, self.grid_size)):
-            for j in range(max(col-1, 0), min(col+2, self.grid_size)):
-                if (i != row or j != col) and self.grid[i][j]:
-                    cnt += 1
-        return cnt == 3 or (self.grid[row][col] and cnt == 2)
+    def _next_generation(self) -> np.ndarray:
+        g = self.grid                         # bool
+        # cast to uint8 **before** summing so counts are 0…8
+        padded = np.pad(g, 1, constant_values=False).astype(np.uint8)   # (N+2, N+2)
+
+        neigh = (
+            padded[:-2, :-2] + padded[:-2, 1:-1] + padded[:-2, 2:] +
+            padded[1:-1, :-2] +                    padded[1:-1, 2:] +
+            padded[2:,  :-2] + padded[2:,  1:-1] + padded[2:,  2:]
+        )  # uint8 array of neighbour counts (shape N×N)
+
+        # apply Conway’s rules
+        return (neigh == 3) | (g & (neigh == 2))
+
 
     def step(self) -> list[list[bool]]:
-        self.grid = [
-            [self._evaluate(i, j) for j in range(self.grid_size)]
-            for i in range(self.grid_size)
-        ]
-        return self.grid
+        """Advance the board one tick and return it as a nested Python list (unchanged API)."""
+        self.grid = self._next_generation()
+        # only convert for caller compatibility; inside we stay NumPy
+        return self.grid.tolist()
 
     def gen_pair(self) -> tuple[np.ndarray, np.ndarray]:
-        """Return (current, next) as uint8 arrays."""
-        cur = np.array(self.grid, dtype=np.uint8)
-        nxt = np.array(self.step(), dtype=np.uint8)
+        """Return (current, next) as uint8 arrays suitable for ML datasets."""
+        cur = self.grid.astype(np.uint8, copy=False)
+        nxt = self._next_generation().astype(np.uint8, copy=False)
         return cur, nxt
 
-
 def generate_pairs(size: int, start_range: tuple[int, int], n: int):
+    rng = np.random.default_rng()
     for _ in range(n):
-        n_start = random.randint(*start_range)
-        g = Grid(size, random_init=True, starting_cells=n_start)
+        n_start = rng.integers(*start_range, endpoint=False)
+        g = Grid(size, random_init=True, starting_cells=n_start, rng=rng)
         yield g.gen_pair()
 
+def print_grid(grid: list[list[bool]]):
+    output = ''
+    for row in grid:
+        for entry in row:
+            output += '⬜' if entry else '⬛'
+        output += '\n'
+    print(output)
 
 def save_to_hdf5(path: str, size: int, start_range: tuple[int, int], n: int):
     chunk_shape = (1, size, size)
-    
     with h5py.File(path, "w-") as f:
         ds_x = f.create_dataset(
-            "X",
-            shape=(n, size, size),
-            dtype="uint8",
-            chunks=chunk_shape,
-            compression="gzip",
-            compression_opts=4,   # you can tune this (1–9)
+            "X", (n, size, size), "uint8", chunks=chunk_shape,
+            compression="gzip", compression_opts=4
         )
         ds_y = f.create_dataset(
-            "Y",
-            shape=(n, size, size),
-            dtype="uint8",
-            chunks=chunk_shape,
-            compression="gzip",
-            compression_opts=4,
+            "Y", (n, size, size), "uint8", chunks=chunk_shape,
+            compression="gzip", compression_opts=4
         )
-
         for idx, (x, y) in enumerate(generate_pairs(size, start_range, n)):
-            # make sure x and y are np.ndarray of shape (size,size), dtype uint8
-            ds_x[idx : idx+1, :, :] = x[None, ...]
-            ds_y[idx : idx+1, :, :] = y[None, ...]
-
+            ds_x[idx:idx+1] = x[None]
+            ds_y[idx:idx+1] = y[None]
             if idx % 100 == 0:
                 print(f"  wrote {idx}/{n}")
-
     print("Done writing", path)
 
 if __name__ == "__main__":
-    save_to_hdf5("life_128.h5", size=128, start_range=(200, 400), n=1000)
+    save_to_hdf5("life_64.h5", size=64, start_range=(0, 64**2), n=1000)
