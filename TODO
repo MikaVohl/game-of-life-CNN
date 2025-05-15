@@ -1,5 +1,0 @@
-- Create a simulator for Conway's Game of Life
-    - Fixed size grid
-    - Dynamic bounding box
-- Create a CNN for a simple next state prediction
-- Create a CNN for redicting the Nth state based on initial condition

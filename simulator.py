@@ -1,15 +1,7 @@
 import h5py, numpy as np
 
 class Grid:
-    def __init__(
-        self,
-        grid_size: int,
-        grid: np.ndarray | None = None,
-        *,
-        random_init: bool = False,
-        starting_cells: int = 0,
-        rng: np.random.Generator | None = None,
-    ):
+    def __init__(self, grid_size: int, grid: np.ndarray | None = None, random_init: bool = False, starting_cells: int = 0, rng: np.random.Generator | None = None,):
         self.grid_size = grid_size
         self.rng = rng or np.random.default_rng()
         if random_init:
@@ -21,18 +13,16 @@ class Grid:
                 self.grid = grid.astype(bool, copy=False)
 
     def init_random(self, grid_size: int, n_alive: int) -> np.ndarray:
-        """Return a boolean grid with exactly n_alive live cells (no Python loops)."""
         flat = np.zeros(grid_size * grid_size, dtype=bool)
-        if n_alive:                                    # safe when n_alive = 0
+        if n_alive:
             idx = self.rng.choice(flat.size, n_alive, replace=False)
             flat[idx] = True
         return flat.reshape(grid_size, grid_size)
 
     def _next_generation(self) -> np.ndarray:
-        g = self.grid # bool
-        padded = np.pad(g, 1, constant_values=False).astype(np.uint8) # (N+2, N+2)
-
-        neigh = (
+        g = self.grid
+        padded = np.pad(g, 1, constant_values=False).astype(np.uint8) # (N+2, N+2). Pad the entire grid
+        neigh = ( # creates a integer 2D array with each element representing how many neighbours it has
             padded[:-2, :-2] + padded[:-2, 1:-1] + padded[:-2, 2:] +
             padded[1:-1, :-2] +                    padded[1:-1, 2:] +
             padded[2:,  :-2] + padded[2:,  1:-1] + padded[2:,  2:]
@@ -40,17 +30,14 @@ class Grid:
         # apply Conway’s rules
         return (neigh == 3) | (g & (neigh == 2))
 
-
     def step(self) -> list[list[bool]]:
         self.grid = self._next_generation()
-        # only convert for caller compatibility; inside we stay NumPy
-        return self.grid.tolist()
 
     def gen_pair(self, N: int) -> tuple[np.ndarray, np.ndarray]:
         start = self.grid.astype(np.uint8, copy=False)
         for _ in range(N):
-            self.grid = self._next_generation()
-        return start, self.grid.astype(np.uint8, copy=False)
+            self.step()
+        return start, self.grid.astype(np.uint8, copy=False) # cast boolean array to integer
 
 
 def generate_pairs(N: int, size: int, start_range: tuple[int, int], n: int):
@@ -80,11 +67,11 @@ def save_to_hdf5(path: str, N: int, size: int, start_range: tuple[int, int], n: 
             compression="gzip", compression_opts=4
         )
         for idx, (x, y) in enumerate(generate_pairs(N, size, start_range, n)):
-            ds_x[idx:idx+1] = x[None]
+            ds_x[idx:idx+1] = x[None] # if x is of shape (size, size), then x[None] is of shape (1, size, size)
             ds_y[idx:idx+1] = y[None]
             if idx % 100 == 0:
                 print(f"  wrote {idx}/{n}")
     print("Done writing", path)
 
-if __name__ == "__main__":
-    save_to_hdf5("life_64.h5", N=5, size=64, start_range=(0, 64**2), n=5000)
+# if __name__ == "__main__":
+#     save_to_hdf5("life_64.h5", N=5, size=64, start_range=(0, 64**2), n=5000)
