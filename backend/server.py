@@ -25,7 +25,7 @@ class Life_CNN(nn.Module):
 
             nn.Conv2d(m, 2*m, kernel_size=3, padding=1), nn.BatchNorm2d(2*m), nn.ReLU(),
             nn.Conv2d(2*m, m, kernel_size=1), nn.BatchNorm2d(m), nn.ReLU(),
-            
+
             nn.Conv2d(m, 1, kernel_size=1)
         )
 
@@ -35,7 +35,7 @@ class Life_CNN(nn.Module):
 # Initialize model and load weights
 torch_device = torch.device('cpu')
 model = Life_CNN()
-model.load_state_dict(torch.load('model_weights.pth', map_location=torch_device))
+model.load_state_dict(torch.load('model_weights_2.pth', map_location=torch_device))
 model.eval()
 
 # Create Flask app

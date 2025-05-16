@@ -73,5 +73,5 @@ def save_to_hdf5(path: str, N: int, size: int, start_range: tuple[int, int], n: 
                 print(f"  wrote {idx}/{n}")
     print("Done writing", path)
 
-# if __name__ == "__main__":
-#     save_to_hdf5("life_64.h5", N=5, size=64, start_range=(0, 64**2), n=5000)
+if __name__ == "__main__":
+    save_to_hdf5("life_32_50k.h5", N=5, size=32, start_range=(0, (32**2) * 1), n=50000)
