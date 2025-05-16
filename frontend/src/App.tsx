@@ -6,6 +6,7 @@ import "./App.css";
 type Grid = number[][];
 const GRID_SIZE = 32;
 const STEPS = 5;
+const SIM_RATE = 650
 
 // UI helpers
 
@@ -151,7 +152,7 @@ export default function App() {
   useEffect(() => {
     if (!isRunning) return;
     if (stepIndex < simulations.length) {
-      const t = setTimeout(() => setStepIndex(i => i + 1), 550);
+      const t = setTimeout(() => setStepIndex(i => i + 1), SIM_RATE);
       return () => clearTimeout(t);
     }
     setIsRunning(false);
