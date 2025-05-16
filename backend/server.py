@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from flask import Flask, request, jsonify
-import numpy as np
+from flask_cors import CORS
 
 # Define the CNN architecture
 class Life_CNN(nn.Module):
@@ -37,6 +37,7 @@ model.eval()
 
 # Create Flask app
 app = Flask(__name__)
+CORS(app)
 @app.route('/predict', methods=['POST'])
 def predict():
     """
@@ -50,19 +51,19 @@ def predict():
     }
     """
     data = request.get_json()
-    grid = np.array(data['grid'], dtype=np.float32)
-
+    grid = torch.tensor(data['grid'], dtype=torch.float32)
     # Prepare tensor: [batch, channel, H, W]
-    input_tensor = torch.from_numpy(grid).unsqueeze(0).unsqueeze(0)
 
+    input_tensor = grid.unsqueeze(0).unsqueeze(0)
     # Forward pass
     with torch.no_grad():
         output = model(input_tensor)
         # Apply sigmoid if needed and threshold
-        pred = output.squeeze().numpy()
-        pred_binary = (pred > 0.5).astype(np.uint8)
-
-    return jsonify({'prediction': pred_binary.tolist()})
+        pred_binary = (output > 0.5).to(torch.uint8).squeeze(0).squeeze(0)
+        prediction = pred_binary.cpu().tolist()
+    print(pred_binary)
+    print(prediction)
+    return jsonify({'prediction': prediction})
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5001)
