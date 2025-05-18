@@ -59,7 +59,7 @@ function ProgressBar({ value, max }: { value: number; max: number }) {
 
 function ComparisonCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-lg border bg-white p-4 shadow-sm">
+    <div className="bg-white p-4">
       <h2 className="mb-2 text-center font-semibold">{title}</h2>
       <div className="flex justify-center">{children}</div>
     </div>
@@ -152,7 +152,12 @@ export default function App() {
   useEffect(() => {
     if (!isRunning) return;
     if (stepIndex < simulations.length) {
-      const t = setTimeout(() => setStepIndex(i => i + 1), SIM_RATE);
+      // no pause for the jump from state 1→state 2
+      const delay = stepIndex === 0 ? 0 : SIM_RATE;
+      const t = setTimeout(
+        () => setStepIndex(i => i + 1),
+        delay
+      );
       return () => clearTimeout(t);
     }
     setIsRunning(false);
@@ -160,10 +165,10 @@ export default function App() {
 
   const currentGrid: Grid =
     stepIndex < 0
-      ? grid
-      : stepIndex < simulations.length
-      ? simulations[stepIndex]
-      : simulations[simulations.length - 1];
+    ? grid
+    : stepIndex < simulations.length
+    ? simulations[stepIndex]
+  : grid;   
 
   return (
     <main className="w-full px-4 sm:px-6 lg:px-8 space-y-8 py-6">
@@ -188,18 +193,23 @@ export default function App() {
       </section>
 
       <section className="space-y-4">
-        {isRunning && <ProgressBar value={stepIndex + 1} max={simulations.length} />}
+        {(loading || isRunning) && (
+          <ProgressBar
+          value={loading ? 1 : stepIndex + 1}
+          max={loading ? STEPS : simulations.length}
+          />
+        )}
         <div className="flex justify-center gap-6">
           <button
             className="btn-primary px-6 py-3 text-lg"
             disabled={loading || isRunning}
             onClick={runSimulation}
           >
-            {loading
-              ? "Running…"
-              : isRunning
-              ? `Step ${Math.min(stepIndex + 1, simulations.length)}/${simulations.length}`
-              : "Run"}
+          {loading
+            ? `Step 1/${STEPS}`
+            : isRunning
+            ? `Step ${Math.min(stepIndex + 1, simulations.length)}/${simulations.length}`
+            : "Run"}
           </button>
           <button
             className="btn-secondary px-6 py-3 text-lg"
