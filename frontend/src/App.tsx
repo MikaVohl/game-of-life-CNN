@@ -169,7 +169,7 @@ export default function App() {
     <main className="w-full px-4 sm:px-6 lg:px-8 space-y-8 py-6">
       <header className="text-center">
         <h1 className="text-3xl font-bold">
-          Conway’s Game of Life —
+          Conway's Game of Life —
           <span className="text-blue-600"> Prediction vs Simulation</span>
         </h1>
         <p className="mt-2 text-base text-gray-600">
