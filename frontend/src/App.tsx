@@ -125,13 +125,13 @@ export default function App() {
   const runSimulation = async () => {
     setLoading(true);
     try {
-      const simRes = await fetch("http://localhost:5001/simulate", {
+      const simRes = await fetch("https://4xpmr3lpioemmys4ftyvzt37oe0kdjlx.lambda-url.us-east-1.on.aws/simulate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ grid, steps: STEPS }),
       });
       const { simulations: sims } = await simRes.json();
-      const predRes = await fetch("http://localhost:5001/predict", {
+      const predRes = await fetch("https://4xpmr3lpioemmys4ftyvzt37oe0kdjlx.lambda-url.us-east-1.on.aws/predict", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ grid }),
