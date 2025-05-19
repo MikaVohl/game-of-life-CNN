@@ -4,8 +4,7 @@ import onnxruntime as ort
 from life_sim import Grid
 
 # Cold-start: load the ONNX model once
-sess = ort.InferenceSession("/var/task/life.onnx",
-                            providers=["CPUExecutionProvider"])
+sess = ort.InferenceSession("/var/task/life.onnx", providers=["CPUExecutionProvider"])
 
 def handler(event, context):
     """

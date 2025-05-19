@@ -7,7 +7,7 @@ type Grid = number[][];
 const GRID_SIZE = 32;
 const STEPS = 5;
 const SIM_RATE = 650
-const API_URL = "https://4xpmr3lpioemmys4ftyvzt37oe0kdjlx.lambda-url.us-east-1.on.aws"
+const API_URL = import.meta.env.VITE_API_URL
 
 // UI helpers
 
