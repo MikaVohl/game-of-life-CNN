@@ -1,2 +1,9 @@
-# Ignore macOS metadata files
 .DS_Store
+\__pycache__
+*.h5
+TODO
+*.pth
+*.pt
+*.egg-info
+*.onnx
+deploy.sh

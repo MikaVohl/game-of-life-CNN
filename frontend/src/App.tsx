@@ -7,6 +7,7 @@ type Grid = number[][];
 const GRID_SIZE = 32;
 const STEPS = 5;
 const SIM_RATE = 650
+const API_URL = "https://4xpmr3lpioemmys4ftyvzt37oe0kdjlx.lambda-url.us-east-1.on.aws"
 
 // UI helpers
 
@@ -125,13 +126,13 @@ export default function App() {
   const runSimulation = async () => {
     setLoading(true);
     try {
-      const simRes = await fetch("https://4xpmr3lpioemmys4ftyvzt37oe0kdjlx.lambda-url.us-east-1.on.aws/simulate", {
+      const simRes = await fetch(API_URL+"/simulate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ grid, steps: STEPS }),
       });
       const { simulations: sims } = await simRes.json();
-      const predRes = await fetch("https://4xpmr3lpioemmys4ftyvzt37oe0kdjlx.lambda-url.us-east-1.on.aws/predict", {
+      const predRes = await fetch(API_URL+"/predict", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ grid }),

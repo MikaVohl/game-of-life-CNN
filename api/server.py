@@ -3,7 +3,7 @@ import torch.nn as nn
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import numpy as np
-from simulator import Grid
+from life_sim import Grid
 
 # Define the CNN architecture
 class Life_CNN(nn.Module):
@@ -35,7 +35,7 @@ class Life_CNN(nn.Module):
 # Initialize model and load weights
 torch_device = torch.device('cpu')
 model = Life_CNN()
-model.load_state_dict(torch.load('model_weights_2.pth', map_location=torch_device))
+model.load_state_dict(torch.load('model_weights_2.pt', map_location=torch_device))
 model.eval()
 
 # Create Flask app

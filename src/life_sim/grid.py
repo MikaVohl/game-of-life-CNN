@@ -1,4 +1,4 @@
-import h5py, numpy as np
+import numpy as np
 
 class Grid:
     def __init__(self, grid_size: int, grid: np.ndarray | None = None, random_init: bool = False, starting_cells: int = 0, rng: np.random.Generator | None = None,):
@@ -56,6 +56,7 @@ def print_grid(grid: list[list[bool]]):
     print(output)
 
 def save_to_hdf5(path: str, N: int, size: int, start_range: tuple[int, int], n: int):
+    import h5py
     chunk_shape = (1, size, size)
     with h5py.File(path, "w-") as f:
         ds_x = f.create_dataset(
@@ -72,6 +73,3 @@ def save_to_hdf5(path: str, N: int, size: int, start_range: tuple[int, int], n: 
             if idx % 100 == 0:
                 print(f"  wrote {idx}/{n}")
     print("Done writing", path)
-
-if __name__ == "__main__":
-    save_to_hdf5("life_32_50k.h5", N=5, size=32, start_range=(0, (32**2) * 1), n=50000)
