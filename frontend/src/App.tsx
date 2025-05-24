@@ -1,32 +1,30 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, ChangeEvent, useMemo } from "react";
 import "./App.css";
 
-// Types & constants
-
 type Grid = number[][];
-const GRID_SIZE = 32;
+const SIZE = 32;
 const STEPS = 5;
-const SIM_RATE = 650
-const API_URL = import.meta.env.VITE_API_URL
+const SIM_DELAY = 650;
+const API = import.meta.env.VITE_API_URL;
 
-// UI helpers
-
-function GridBoard({
+function LifeGrid({
   grid,
-  cell = 8,
-  clickable = false,
-  onCellDown,
-  onCellEnter,
+  cell = 10,
+  interactive = false,
+  dimmed = false,
+  onDown,
+  onEnter,
 }: {
   grid: Grid;
   cell?: number;
-  clickable?: boolean;
-  onCellDown?: (r: number, c: number) => void;
-  onCellEnter?: (r: number, c: number) => void;
+  interactive?: boolean;
+  dimmed?: boolean;
+  onDown?: (r: number, c: number) => void;
+  onEnter?: (r: number, c: number) => void;
 }) {
   return (
     <div
-      className="inline-grid gap-[1px] bg-gray-400 border border-black"
+      className={`inline-grid gap-[1px] border border-2 border-gray-300 ${dimmed && "opacity-60"}`}
       style={{ gridTemplateColumns: `repeat(${grid.length}, ${cell}px)` }}
     >
       {grid.map((row, r) =>
@@ -34,11 +32,9 @@ function GridBoard({
           <div
             key={`${r}-${c}`}
             style={{ width: cell, height: cell }}
-            className={`${v ? "bg-blue-600" : "bg-white"} ${
-              clickable ? "cursor-pointer" : ""
-            }`}
-            onMouseDown={() => clickable && onCellDown?.(r, c)}
-            onMouseEnter={() => clickable && onCellEnter?.(r, c)}
+            className={v ? "bg-blue-600" : "bg-white"}
+            onMouseDown={() => interactive && onDown?.(r, c)}
+            onMouseEnter={() => interactive && onEnter?.(r, c)}
           />
         ))
       )}
@@ -46,141 +42,154 @@ function GridBoard({
   );
 }
 
-function ProgressBar({ value, max }: { value: number; max: number }) {
-  const pct = (value / max) * 100;
+function Card({ title, children, placeholder }: { title: string; children?: React.ReactNode; placeholder?: string }) {
   return (
-    <div className="mx-auto h-2 w-64 overflow-hidden rounded bg-gray-200">
-      <div
-        className="h-full bg-blue-500 transition-all duration-300"
-        style={{ width: `${pct}%` }}
-      />
+    <div className="flex flex-col items-center rounded-lg bg-white p-4 min-w-[340px]">
+      <h3 className="mb-3 font-semibold">{title}</h3>
+      {children ?? <span className="text-gray-400 italic">{placeholder}</span>}
     </div>
   );
 }
 
-function ComparisonCard({ title, children }: { title: string; children: React.ReactNode }) {
+function StepBar({ step }: { step: number }) {
+  const steps = ["Draw", "Predict", "Simulate"];
   return (
-    <div className="bg-white p-4">
-      <h2 className="mb-2 text-center font-semibold">{title}</h2>
-      <div className="flex justify-center">{children}</div>
-    </div>
+    <ol className="flex justify-center gap-6 text-sm font-medium mb-4">
+      {steps.map((s, i) => (
+        <li
+          key={s}
+          className={`px-2 pb-[2px] border-b-2 ${i === step ? "border-blue-600 text-blue-700" : "border-transparent text-gray-400"}`}
+        >
+          {s}
+        </li>
+      ))}
+    </ol>
   );
 }
-
-// Main component
 
 export default function App() {
-  const [grid, setGrid] = useState<Grid>(
-    Array.from({ length: GRID_SIZE }, () => Array(GRID_SIZE).fill(0))
-  );
-  const [simulations, setSimulations] = useState<Grid[]>([]);
+  type Stage = 0 | 1 | 2;
+  const empty = (): Grid => Array.from({ length: SIZE }, () => Array(SIZE).fill(0));
+
+  const [stage, setStage] = useState<Stage>(0);
+  const [grid, setGrid] = useState<Grid>(empty());
   const [prediction, setPrediction] = useState<Grid | null>(null);
-  const [stepIndex, setStepIndex] = useState(-1);
-  const [loading, setLoading] = useState(false);
-  const [isRunning, setIsRunning] = useState(false);
+  const [frames, setFrames] = useState<Grid[]>([]);
+  const [idx, setIdx] = useState(-1);
+  const [autoPlay, setAutoPlay] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
 
-  // track dragging state
-  const dragging = useRef(false);
-  const dragValue = useRef(1);
-
-  // cleanup on mouse up
+  // drawing helpers
+  const drag = useRef(false);
+  const paintVal = useRef(1);
   useEffect(() => {
-    const handleMouseUp = () => {
-      dragging.current = false;
-    };
-    document.addEventListener("mouseup", handleMouseUp);
-    return () => document.removeEventListener("mouseup", handleMouseUp);
+    const up = () => (drag.current = false);
+    window.addEventListener("mouseup", up);
+    return () => window.removeEventListener("mouseup", up);
   }, []);
 
-  // cell update helper
-  const setCell = (r: number, c: number, val: number) => {
-    setGrid(prev => {
-      const next = prev.map(row => [...row]);
-      next[r][c] = val;
-      return next;
+  const setCell = (r: number, c: number, v: number) =>
+    setGrid((g) => {
+      const n = g.map((row) => [...row]);
+      n[r][c] = v;
+      return n;
     });
-  };
 
-  const handleCellDown = (r: number, c: number) => {
-    if (isRunning || stepIndex >= 0) return;
-    dragging.current = true;
-    const current = grid[r][c];
-    dragValue.current = current ? 0 : 1;
-    setCell(r, c, dragValue.current);
-  };
-
-  const handleCellEnter = (r: number, c: number) => {
-    if (dragging.current) {
-      setCell(r, c, dragValue.current);
-    }
-  };
-
-  const reset = () => {
-    setGrid(Array.from({ length: GRID_SIZE }, () => Array(GRID_SIZE).fill(0)));
-    setSimulations([]);
-    setPrediction(null);
-    setStepIndex(-1);
-    setIsRunning(false);
-  };
-
-  const runSimulation = async () => {
-    setLoading(true);
+  // API calls
+  const predict = async () => {
+    setBusy(true);
     try {
-      const simRes = await fetch(API_URL+"/simulate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ grid, steps: STEPS }),
-      });
-      const { simulations: sims } = await simRes.json();
-      const predRes = await fetch(API_URL+"/predict", {
+      const res = await fetch(`${API}/predict`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ grid }),
       });
-      const { prediction: pred } = await predRes.json();
-      setSimulations(sims);
-      setPrediction(pred);
-      setStepIndex(0);
-      setIsRunning(true);
-    } catch (err) {
-      console.error("Run error", err);
+      const { prediction: p } = await res.json();
+      setPrediction(p);
+      setStage(1);
+    } catch {
+      setError("Prediction failed. Try again.");
     } finally {
-      setLoading(false);
+      setBusy(false);
     }
   };
 
-  // animate
-  useEffect(() => {
-    if (!isRunning) return;
-    if (stepIndex < simulations.length) {
-      // no pause for the jump from state 1→state 2
-      const delay = stepIndex === 0 ? 0 : SIM_RATE;
-      const t = setTimeout(
-        () => setStepIndex(i => i + 1),
-        delay
-      );
-      return () => clearTimeout(t);
+  const simulate = async () => {
+    setBusy(true);
+    try {
+      const res = await fetch(`${API}/simulate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ grid, steps: STEPS }),
+      });
+      const { simulations } = await res.json();
+      setFrames(simulations);
+      setIdx(0);
+      setAutoPlay(true);
+      setStage(2);
+    } catch {
+      setError("Simulation failed. Try again.");
+    } finally {
+      setBusy(false);
     }
-    setIsRunning(false);
-  }, [isRunning, stepIndex, simulations.length]);
+  };
 
-  const currentGrid: Grid =
-    stepIndex < 0
-    ? grid
-    : stepIndex < simulations.length
-    ? simulations[stepIndex]
-  : grid;   
+  // autoplay
+  useEffect(() => {
+    if (stage !== 2 || !autoPlay) return;
+    if (idx >= frames.length - 1) {
+      setAutoPlay(false);
+      return;
+    }
+    const t = setTimeout(() => setIdx((i) => i + 1), SIM_DELAY);
+    return () => clearTimeout(t);
+  }, [stage, autoPlay, idx, frames.length]);
+
+  // manual controls
+  const hop = (d: number) => {
+    setIdx((i) => Math.min(Math.max(i + d, 0), frames.length - 1));
+    setAutoPlay(false);
+  };
+  const onSlider = (e: ChangeEvent<HTMLInputElement>) => {
+    setIdx(Number(e.target.value));
+    setAutoPlay(false);
+  };
+
+  // reset
+  const reset = () => {
+    setGrid(empty());
+    setPrediction(null);
+    setFrames([]);
+    setIdx(-1);
+    setStage(0);
+    setError("");
+    setAutoPlay(false);
+  };
+
+  const leftGrid = stage === 2 ? frames[Math.max(0, idx)] : grid;
+
+  const matchPct = useMemo(() => {
+    if (stage !== 2 || !prediction || frames.length === 0) return null;
+    const finalSim = frames[frames.length - 1];
+    let same = 0;
+    for (let r = 0; r < SIZE; r++) {
+      for (let c = 0; c < SIZE; c++) {
+        if (finalSim[r][c] === prediction[r][c]) same++;
+      }
+    }
+    return Math.round((same / (SIZE * SIZE)) * 100);
+  }, [stage, frames, prediction]);
+
+  const simulationFinished = stage === 2 && idx >= frames.length - 1 && !autoPlay;
 
   return (
-    <main className="w-full px-4 sm:px-6 lg:px-8 space-y-8 py-6">
+    <div className="max-w-5xl mx-auto px-4 py-8 space-y-6">
       <header className="text-center space-y-2">
-        <h1 className="text-4xl font-bold">
+        <h1 className="text-3xl font-bold">
           Conway's Game of Life
         </h1>
-        <p className="text-lg text-gray-600">
-          Conway's Game of Life is an inherently chaotic system, which has no closed-form solution. This means a future state can only be reliably predicted by simulating the system step-by-step. However, a neural network can be trained to predict a future state of the system based on its current state. This project explores whether a neural network can accurately predict the fifth next state of Conway's Game of Life.
-        </p>
-        <p className="mt-2 text-base font-medium text-blue-600">
+        <p className="mt-2 text-base text-gray-600">
           Drag to paint live cells, then run five-step comparison.
         </p>
         <a
@@ -216,56 +225,94 @@ export default function App() {
           View source code
         </a>
       </header>
+      {error.trim() && <div className="bg-red-100 text-red-700 p-3 rounded">{error}</div>}
 
-      <section className="overflow-x-auto flex justify-center mb-6">
-        <GridBoard
-          grid={currentGrid}
-          cell={12}
-          clickable={!isRunning && stepIndex < 0}
-          onCellDown={handleCellDown}
-          onCellEnter={handleCellEnter}
-        />
-      </section>
+      <StepBar step={stage} />
 
-      <section className="space-y-4">
-        {(loading || isRunning) && (
-          <ProgressBar
-          value={loading ? 1 : stepIndex + 1}
-          max={loading ? STEPS : simulations.length}
+      <div className="flex flex-wrap justify-center gap-6">
+        {/* Left card */}
+        <Card title={stage === 0 ? "Draw initial state" : "Simulation"}>
+          <LifeGrid
+            grid={leftGrid}
+            interactive={stage === 0 && !busy}
+            dimmed={stage > 0}
+            onDown={(r, c) => {
+              if (busy || stage !== 0) return;
+              drag.current = true;
+              paintVal.current = grid[r][c] ? 0 : 1;
+              setCell(r, c, paintVal.current);
+            }}
+            onEnter={(r, c) => drag.current && stage === 0 && setCell(r, c, paintVal.current)}
           />
-        )}
-        <div className="flex justify-center gap-6">
-          <button
-            className="btn-primary px-6 py-3 text-lg"
-            disabled={loading || isRunning}
-            onClick={runSimulation}
-          >
-          {loading
-            ? `Step 1/${STEPS}`
-            : isRunning
-            ? `Step ${Math.min(stepIndex + 1, simulations.length)}/${simulations.length}`
-            : "Run"}
-          </button>
-          <button
-            className="btn-secondary px-6 py-3 text-lg"
-            disabled={isRunning || loading}
-            onClick={reset}
-          >
-            Reset
-          </button>
-        </div>
-      </section>
 
-      {stepIndex >= simulations.length && prediction && (
-        <section className="grid gap-6 lg:grid-cols-2 overflow-x-auto">
-          <ComparisonCard title="Simulation (step 5)">
-            <GridBoard grid={simulations[simulations.length - 1]} cell={8} />
-          </ComparisonCard>
-          <ComparisonCard title="CNN Prediction">
-            <GridBoard grid={prediction} cell={8} />
-          </ComparisonCard>
-        </section>
+          {/* playback controls */}
+          {stage === 2 && (
+            <div className="mt-4 flex flex-col items-center gap-3">
+              <input
+                className="w-64 accent-blue-600"
+                type="range"
+                min={0}
+                max={frames.length - 1}
+                value={idx}
+                onChange={onSlider}
+              />
+              <div className="flex items-center gap-3">
+                <button className="btn-gray px-3" disabled={idx === 0} onClick={() => hop(-1)}>
+                  ◀
+                </button>
+                {autoPlay ? (
+                  <button className="btn-gray px-4" onClick={() => setAutoPlay(false)}>
+                    ❚❚ Pause
+                  </button>
+                ) : (
+                  <button className="btn-gray px-4" onClick={() => setAutoPlay(true)}>
+                    ▶ Play
+                  </button>
+                )}
+                <button className="btn-gray px-3" disabled={idx === frames.length - 1} onClick={() => hop(1)}>
+                  ▶
+                </button>
+                <span className="text-sm text-gray-600">
+                  Frame {idx + 1}/{frames.length}
+                </span>
+              </div>
+            </div>
+          )}
+        </Card>
+
+        {/* Right card */}
+        {stage !== 0 && (
+          <Card title="Neural Network Prediction" placeholder="(awaiting prediction…)">
+            {prediction && <LifeGrid grid={prediction} />}
+          </Card>
+        )}
+      </div>
+
+      {/* accuracy banner */}
+      {simulationFinished && matchPct !== null && (
+        <div className="text-xl text-center font-bold text-green-500">
+          {matchPct}% pixel match
+        </div>
       )}
-    </main>
+
+      {/* Action buttons */}
+      <div className="flex justify-center gap-4">
+        {stage === 0 && (
+          <button disabled={busy} onClick={predict} className="btn-primary">
+            {busy ? "Predicting…" : "Predict"}
+          </button>
+        )}
+        {stage === 1 && (
+          <button disabled={busy} onClick={simulate} className="btn-blue">
+            {busy ? "Loading…" : "Simulate"}
+          </button>
+        )}
+        {simulationFinished && (
+          <button onClick={reset} className="btn-secondary">
+            Start over
+          </button>
+        )}
+      </div>
+    </div>
   );
 }
