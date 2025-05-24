@@ -9,7 +9,7 @@ const API = import.meta.env.VITE_API_URL;
 
 function LifeGrid({
   grid,
-  cell = 10,
+  cell = 12,
   interactive = false,
   dimmed = false,
   onDown,
@@ -190,7 +190,16 @@ export default function App() {
           Conway's Game of Life
         </h1>
         <p className="mt-2 text-base text-gray-600">
-          Drag to paint live cells, then run five-step comparison.
+          <a
+            href="https://en.wikipedia.org/wiki/Conway%27s_Game_of_Life"
+            className="underline text-blue-600"
+          >
+            Conway's Game of Life
+          </a>{" "}
+          is governed by a set of simple rules, but it can produce complex patterns. It is an inherently chaotic system, which has no closed-form mathematical solution.
+        </p>
+        <p className="mt-2 text-base font-medium italic text-gray-600">
+          While simulations must run step-by-step, can a neural network predict the 5th step right away?
         </p>
         <a
           href="https://github.com/MikaVohl/game-of-life-CNN"
