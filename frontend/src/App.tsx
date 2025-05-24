@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef, ChangeEvent, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
+import type { ChangeEvent } from "react";
 import "./App.css";
 
 type Grid = number[][];
