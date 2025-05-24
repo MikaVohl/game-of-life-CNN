@@ -174,11 +174,13 @@ export default function App() {
   return (
     <main className="w-full px-4 sm:px-6 lg:px-8 space-y-8 py-6">
       <header className="text-center space-y-2">
-        <h1 className="text-3xl font-bold">
-          Conway's Game of Life —
-          <span className="text-blue-600"> Prediction vs Simulation</span>
+        <h1 className="text-4xl font-bold">
+          Conway's Game of Life
         </h1>
-        <p className="mt-2 text-base text-gray-600">
+        <p className="text-lg text-gray-600">
+          Conway's Game of Life is an inherently chaotic system, which has no closed-form solution. This means a future state can only be reliably predicted by simulating the system step-by-step. However, a neural network can be trained to predict a future state of the system based on its current state. This project explores whether a neural network can accurately predict the fifth next state of Conway's Game of Life.
+        </p>
+        <p className="mt-2 text-base font-medium text-blue-600">
           Drag to paint live cells, then run five-step comparison.
         </p>
         <a
