@@ -6,6 +6,43 @@ This restriction motivated me to explore using deep learning methods to attempt 
 
 I have deployed my implementation at [life.mikavohl.ca](life.mikavohl.ca) in the form of a blank canvas on which the user can input the initial state, then compare the results of direct simulation and the prediction by the CNN.
 
+## Model Architecture
+```
+m = 24
+self.net = nn.Sequential(
+   nn.Conv2d(1, 2*m, kernel_size=3, padding=1), nn.BatchNorm2d(2*m), nn.ReLU(),
+   nn.Conv2d(2*m, m, kernel_size=1), nn.BatchNorm2d(m), nn.ReLU(),
+
+   nn.Conv2d(m, 2*m, kernel_size=3, padding=1), nn.BatchNorm2d(2*m), nn.ReLU(),
+   nn.Conv2d(2*m, m, kernel_size=1), nn.BatchNorm2d(m), nn.ReLU(),
+
+   nn.Conv2d(m, 2*m, kernel_size=3, padding=1), nn.BatchNorm2d(2*m), nn.ReLU(),
+   nn.Conv2d(2*m, m, kernel_size=1), nn.BatchNorm2d(m), nn.ReLU(),
+
+   nn.Conv2d(m, 2*m, kernel_size=3, padding=1), nn.BatchNorm2d(2*m), nn.ReLU(),
+   nn.Conv2d(2*m, m, kernel_size=1), nn.BatchNorm2d(m), nn.ReLU(),
+
+   nn.Conv2d(m, 2*m, kernel_size=3, padding=1), nn.BatchNorm2d(2*m), nn.ReLU(),
+   nn.Conv2d(2*m, m, kernel_size=1), nn.BatchNorm2d(m), nn.ReLU(),
+
+   nn.Conv2d(m, 1, kernel_size=1)
+)
+```
+![life_model](life_model.png)
+**Figure 1.** Life_CNN model architecture. Adapted from Springer & Kenyon, 2020
+
+After experimenting with different architectures and obtaining sub-par results, I eventually adapted much of the model from a proposed framework in *"It's Hard for Neural Networks To Learn the Game of Life"* by Springer and Kenyon.
+
+The intuition behind this architecture stems from the localization of the game of life. In the game of life, predicting point $P$'s state $N$ steps in the future is dependent on the initial states of all the cells within a distance of $N$ from $P$. This is geometrically intuitive as at every step a cell can only be influenced by those at a distance of $1$.
+
+Given this information, I initally considered using a convolutional kernel of dimension $(2N+1) \times (2N+1)$. This made sense intuitively, as this allows the output of a cell to depend on all states within a distance of $N$ of it. By experimentation, however, it turns out that this was not optimal due to the quadratically increasing number of parameters. Instead, as the paper suggested, a single $(2N+1) \times (2N+1)$ kernel could be substituted by stacking $N$ copies of two convolutional layers with kernels of dimension $3 \times 3$ and $1 \times 1$ respectively.
+
+Combining the stacked kernels with the notion of a "factor of overcompleteness" introduced in Springer & Kenyon, the model yielded excellent results.
+
+Attempting to apply this approach to larger values of $N$ proved challenging. Setting $N=10$, the same approach to training was only able to yield a loss on the order of $0.6$, with a pixel accuracy of $\sim72\%$, compared to the $N=5$ case which achieved loss of $0.0142$ and $99.998\%$ pixel accuracy.
+
+![loss_progression](loss_progression.png)
+<br>**Figure 2.** Loss progression for various factors of overcompleteness. Loss taken up to 20 epochs on 50k training examples, 32x32 grid, 5 steps into the future.
 
 ## Setup
 
