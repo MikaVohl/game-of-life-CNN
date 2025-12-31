@@ -118,43 +118,21 @@ Various factors of overcompleteness were tested across 20 epochs of training. Th
    cd Game-of-Life-CNN
    ```
 
-2. **Install & link the Python package**
-
-   ```bash
-   pip install -e .
-   ```
-
-   This makes `life_sim` importable in both the Flask API and any notebooks.
-
-3. **Install front-end dependencies**
+2. **Install front-end dependencies**
 
    ```bash
    cd frontend
    npm install
    ```
 
-4. **Create `frontend/.env`**
-
-   ```bash
-   VITE_API_URL=http://localhost:5001
-   ```
-
-5. **Run the Flask API**
-
-   ```bash
-   cd ../api
-   pip install -r requirements.txt  # only once
-   python server.py
-   ```
-
-6. **Run the front-end**
+3. **Run the front-end**
 
    ```bash
    cd ../frontend
    npm run dev
    ```
 
-   Visit [http://localhost:5173](http://localhost:5173) to paint cells and compare simulation vs. CNN prediction.
+   Visit [http://localhost:5173](http://localhost:5173) to paint cells and compare simulation vs. CNN prediction. The demo now runs entirely in the browser.
 
 ### *Optional: Building & Deploying on AWS Lambda*
 

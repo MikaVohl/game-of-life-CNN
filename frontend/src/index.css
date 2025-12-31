@@ -1,1 +1,28 @@
 @import "tailwindcss";
+:root {
+  --bg: #f5f2ea;
+  --card: #f8f7f2;
+  --text: #121212;
+  --border: #b9b4a8;
+  --cell: #fbfaf6;
+  --cell-on: #ff6a00;
+  --accent-0: #ff6a00;
+  --accent-1: #ffd600;
+  --gridline: #b9b4a8b1;
+  --pixel-border: #d8d4cb;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  min-height: 100vh;
+  margin: 0;
+  width: 100%;
+  background: var(--bg);
+  color: var(--text);
+}
