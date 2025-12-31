@@ -6,13 +6,15 @@ import { predictWithCnn, simulateSteps, type Grid } from "./lifeModel";
 const SIZE = 32;
 const STEPS = 5;
 const SIM_DELAY = 650;
+const CELL = 14;
 
 const buttonBase =
-  "inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50";
-const buttonPrimary = `${buttonBase} bg-blue-600 text-white shadow-sm hover:bg-blue-700 focus-visible:ring-blue-500`;
-const buttonSecondary = `${buttonBase} bg-gray-100 text-gray-900 shadow-sm hover:bg-gray-200 focus-visible:ring-gray-400`;
-const buttonGhost = `${buttonBase} bg-white text-gray-700 ring-1 ring-gray-200 hover:bg-gray-50 focus-visible:ring-gray-300`;
-const buttonIcon = `${buttonBase} px-3 py-2 bg-white text-gray-700 ring-1 ring-gray-200 hover:bg-gray-50 focus-visible:ring-gray-300`;
+  "inline-flex items-center justify-center rounded-[6px] px-4 py-2 text-sm font-semibold tracking-[0.02em] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--accent-0)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--bg)] disabled:cursor-not-allowed disabled:opacity-50";
+const buttonPrimary = `${buttonBase} bg-[color:var(--accent-0)] text-[color:var(--text)] shadow-sm hover:bg-[color:var(--accent-1)] active:translate-y-[1px] active:shadow-none`;
+const buttonSecondary = `${buttonBase} bg-[color:var(--card)] text-[color:var(--text)] shadow-sm hover:bg-[color:var(--bg)] active:translate-y-[1px] active:shadow-none`;
+const buttonOutline = `${buttonBase} border border-[color:var(--border)] bg-transparent text-[color:var(--text)] shadow-none hover:bg-[color:var(--bg)] active:translate-y-[1px]`;
+const buttonGhost = `${buttonOutline} h-8 px-3 py-1`;
+const buttonIcon = `${buttonOutline} h-8 px-3 py-1`;
 
 function LifeGrid({
   grid,
@@ -151,39 +153,49 @@ function LifeGrid({
 
   return (
     <div
-      ref={containerRef}
-      className={`inline-grid gap-[1px] border border-2 border-gray-300 ${dimmed && "opacity-60"} ${interactive ? "select-none" : ""}`}
-      style={{
-        gridTemplateColumns: `repeat(${grid.length}, ${cell}px)`,
-        touchAction: interactive ? "none" : "auto",
-        WebkitUserSelect: interactive ? "none" : "auto",
-      }}
-      onPointerDown={handlePointerDown}
-      onPointerMove={handlePointerMove}
-      onPointerUp={handlePointerEnd}
-      onPointerCancel={handlePointerEnd}
+      className={`inline-block origin-top scale-[0.82] rounded-xl bg-[color:var(--card)] p-3 sm:scale-100 sm:p-4 ${
+        dimmed && "opacity-70"
+      }`}
     >
-      {grid.map((row, r) =>
-        row.map((v, c) => (
-          <div
-            key={`${r}-${c}`}
-            data-life-cell="1"
-            data-r={r}
-            data-c={c}
-            style={{ width: cell, height: cell, touchAction: interactive ? "none" : "auto" }}
-            className={v ? "bg-blue-600" : "bg-white"}
-          />
-        ))
-      )}
+      <div
+        ref={containerRef}
+        className={`inline-grid gap-[1px] rounded-xs bg-[color:var(--gridline)] p-[1px] ${interactive ? "select-none" : ""}`}
+        style={{
+          gridTemplateColumns: `repeat(${grid.length}, ${cell}px)`,
+          touchAction: interactive ? "none" : "auto",
+          WebkitUserSelect: interactive ? "none" : "auto",
+        }}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerEnd}
+        onPointerCancel={handlePointerEnd}
+      >
+        {grid.map((row, r) =>
+          row.map((v, c) => (
+            <div
+              key={`${r}-${c}`}
+              data-life-cell="1"
+              data-r={r}
+              data-c={c}
+              style={{ width: cell, height: cell, touchAction: interactive ? "none" : "auto" }}
+              className={
+                v
+                  ? "rounded-[2px] bg-[color:var(--cell-on)] opacity-100 transition-[background-color,opacity] duration-150 ease-out"
+                  : "rounded-[2px] bg-[color:var(--cell)] opacity-90 transition-[background-color,opacity] duration-150 ease-out"
+              }
+            />
+          ))
+        )}
+      </div>
     </div>
   );
 }
 
 function Card({ title, children, placeholder }: { title: string; children?: React.ReactNode; placeholder?: string }) {
   return (
-    <div className="flex flex-col items-center rounded-lg bg-white p-4 min-w-[340px]">
-      <h3 className="mb-3 font-semibold">{title}</h3>
-      {children ?? <span className="text-gray-400 italic">{placeholder}</span>}
+    <div className="flex w-full max-w-[520px] flex-col items-center rounded-xl bg-[color:var(--card)] p-4 sm:p-5 border border-[color:var(--border)]">
+      <h3 className="font-semibold text-[color:var(--text)]">{title}</h3>
+      {children ?? <span className="text-[color:rgba(18,18,18,0.55)] italic">{placeholder}</span>}
     </div>
   );
 }
@@ -191,11 +203,13 @@ function Card({ title, children, placeholder }: { title: string; children?: Reac
 function StepBar({ step }: { step: number }) {
   const steps = ["Draw", "Predict", "Simulate"];
   return (
-    <ol className="flex justify-center gap-6 text-sm font-medium mb-4">
+    <ol className="flex justify-center gap-3 text-xs font-medium mb-3 text-[color:var(--text)] sm:gap-6 sm:text-sm">
       {steps.map((s, i) => (
         <li
           key={s}
-          className={`px-2 pb-[2px] border-b-2 ${i === step ? "border-blue-600 text-blue-700" : "border-transparent text-gray-400"}`}
+          className={`px-2 pb-[2px] border-b-2 ${
+            i === step ? "border-[color:var(--border)]" : "border-transparent opacity-40"
+          }`}
         >
           {s}
         </li>
@@ -216,6 +230,8 @@ export default function App() {
   const [autoPlay, setAutoPlay] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [toast, setToast] = useState("");
+  const toastTimer = useRef<number | null>(null);
 
   // drawing helpers
   const drag = useRef(false);
@@ -237,6 +253,35 @@ export default function App() {
       n[r][c] = v;
       return n;
     });
+
+  const showToast = (message: string) => {
+    setToast(message);
+    if (toastTimer.current !== null) {
+      window.clearTimeout(toastTimer.current);
+    }
+    toastTimer.current = window.setTimeout(() => {
+      setToast("");
+      toastTimer.current = null;
+    }, 2200);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (toastTimer.current !== null) {
+        window.clearTimeout(toastTimer.current);
+      }
+    };
+  }, []);
+
+  const isGridEmpty = (current: Grid) => {
+    for (let r = 0; r < current.length; r++) {
+      const row = current[r];
+      for (let c = 0; c < row.length; c++) {
+        if (row[c]) return false;
+      }
+    }
+    return true;
+  };
 
   const linePoints = (from: { r: number; c: number }, to: { r: number; c: number }) => {
     let x0 = from.c;
@@ -283,32 +328,27 @@ export default function App() {
 
   // local inference + simulation
   const predict = async () => {
+    if (isGridEmpty(grid)) {
+      showToast("Add a few live cells before predicting.");
+      return;
+    }
     setBusy(true);
     setError("");
     try {
-      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
       const p = predictWithCnn(grid);
       setPrediction(p);
-      setStage(1);
-    } catch {
-      setError("Prediction failed. Try again.");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const simulate = async () => {
-    setBusy(true);
-    setError("");
-    try {
-      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+      setStage(2);
+      setFrames([grid]);
+      setIdx(0);
+      setAutoPlay(false);
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
       const simulations = simulateSteps(grid, STEPS);
-      setFrames(simulations);
+      setFrames([grid, ...simulations]);
       setIdx(0);
       setAutoPlay(true);
-      setStage(2);
     } catch {
-      setError("Simulation failed. Try again.");
+      setError("Prediction failed. Try again.");
     } finally {
       setBusy(false);
     }
@@ -329,6 +369,11 @@ export default function App() {
   const hop = (d: number) => {
     setIdx((i) => Math.min(Math.max(i + d, 0), frames.length - 1));
     setAutoPlay(false);
+  };
+  const startPlayback = () => {
+    if (frames.length === 0) return;
+    setIdx((i) => (i >= frames.length - 1 ? 0 : i));
+    setAutoPlay(true);
   };
   const onSlider = (e: ChangeEvent<HTMLInputElement>) => {
     setIdx(Number(e.target.value));
@@ -364,28 +409,37 @@ export default function App() {
   const simulationFinished = stage === 2 && idx >= frames.length - 1 && !autoPlay;
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-8 space-y-6">
-      <header className="text-center space-y-2">
-        <h1 className="text-3xl font-bold">
-          Conway's Game of Life
+    <div className="max-w-6xl mx-auto px-3 py-6 space-y-4 sm:px-4 sm:py-8 sm:space-y-6">
+      <header className="space-y-2 px-2 text-left sm:px-8 sm:text-center md:px-20">
+        <h1 className="text-2xl font-bold text-[color:var(--text)] sm:text-3xl">
+          Predicting Conway's Game of Life
         </h1>
-        <p className="mt-2 text-base text-gray-600">
+        <p className="mt-2 text-sm text-[color:var(--text)] sm:text-base">
           <a
             href="https://en.wikipedia.org/wiki/Conway%27s_Game_of_Life"
-            className="underline text-blue-600"
+            className="underline decoration-[color:var(--accent-0)] decoration-2 underline-offset-4 text-[color:var(--text)]"
           >
             Conway's Game of Life
           </a>{" "}
-          is governed by a set of simple rules, but it can produce complex patterns. It is an inherently chaotic system, which has no closed-form mathematical solution.
+          is governed by a set of simple rules
+          <span className="sm:hidden">, creating complex patterns.</span>
+          <span className="hidden sm:inline">
+            , but it can produce complex patterns. It is an inherently chaotic system, which has no closed-form
+            mathematical solution.
+          </span>
         </p>
-        <p className="mt-2 text-base font-medium italic text-gray-600">
-          While simulations must run step-by-step, can a neural network predict the 5th step right away?
+        <p className="mt-2 text-sm font-medium text-[color:var(--text)] sm:hidden">
+          Can a neural net jump straight to the 5th next state?
+        </p>
+        <p className="mt-2 text-base font-medium text-[color:var(--text)] hidden sm:block">
+          {/* While simulations must run step-by-step, can a neural network predict the 5th step right away? */}
+          Instead of simulating the game step-by-step, can a neural network predict the 5th next state in one shot?
         </p>
         <a
           href="https://github.com/MikaVohl/game-of-life-CNN"
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center text-gray-600 font-bold hover:text-gray-800"
+          className="inline-flex w-full items-center justify-center font-bold text-[color:var(--text)] text-sm sm:w-auto sm:text-base"
         >
           <svg
             className="mr-2"
@@ -411,18 +465,30 @@ export default function App() {
                  -3.58-8-8-8z"
             />
           </svg>
-          View source code
+          View Source Code
         </a>
       </header>
-      {error.trim() && <div className="bg-red-100 text-red-700 p-3 rounded">{error}</div>}
+      {error.trim() && (
+        <div className="bg-[color:var(--card)] text-[color:var(--text)] p-3 rounded-lg border border-[color:var(--border)]">
+          {error}
+        </div>
+      )}
+      {toast && (
+        <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] px-4 py-2 text-sm font-medium text-[color:var(--text)] shadow-sm">
+          {toast}
+        </div>
+      )}
 
       <StepBar step={stage} />
 
-      <div className="flex flex-wrap justify-center gap-6">
+      <div
+        className={`grid gap-6 justify-items-center mb-3 ${stage === 0 ? "grid-cols-1" : "grid-cols-1 md:grid-cols-2"}`}
+      >
         {/* Left card */}
         <Card title={stage === 0 ? "Draw initial state" : "Simulation"}>
           <LifeGrid
             grid={leftGrid}
+            cell={CELL}
             interactive={stage === 0 && !busy}
             dimmed={stage > 0}
             onDown={(r, c) => {
@@ -449,12 +515,19 @@ export default function App() {
               lastPaintCell.current = null;
             }}
           />
+          {stage === 0 && (
+            <div className="flex justify-center">
+              <button className={buttonOutline} onClick={reset} disabled={busy}>
+                Clear grid
+              </button>
+            </div>
+          )}
 
           {/* playback controls */}
           {stage === 2 && (
-            <div className="mt-4 flex flex-col items-center gap-3">
+            <div className="flex flex-col items-center gap-2">
               <input
-                className="w-64 accent-blue-600"
+                className="w-56 accent-[#ff6a00] sm:w-64"
                 type="range"
                 min={0}
                 max={frames.length - 1}
@@ -467,19 +540,16 @@ export default function App() {
                 </button>
                 {autoPlay ? (
                   <button className={buttonGhost} onClick={() => setAutoPlay(false)}>
-                    ❚❚ Pause
+                    Pause
                   </button>
                 ) : (
-                  <button className={buttonGhost} onClick={() => setAutoPlay(true)}>
-                    ▶ Play
+                  <button className={buttonGhost} onClick={startPlayback}>
+                    Start
                   </button>
                 )}
                 <button className={buttonIcon} disabled={idx === frames.length - 1} onClick={() => hop(1)}>
                   ▶
                 </button>
-                <span className="text-sm text-gray-600">
-                  Frame {idx + 1}/{frames.length}
-                </span>
               </div>
             </div>
           )}
@@ -488,17 +558,15 @@ export default function App() {
         {/* Right card */}
         {stage !== 0 && (
           <Card title="Neural Network Prediction" placeholder="(awaiting prediction…)">
-            {prediction && <LifeGrid grid={prediction} />}
+            {prediction && <LifeGrid grid={prediction} cell={CELL} />}
+            {simulationFinished && matchPct !== null && (
+              <div className="mt-4 text-xl font-bold text-[color:var(--text)]">
+                {matchPct}% pixel match
+              </div>
+            )}
           </Card>
         )}
       </div>
-
-      {/* accuracy banner */}
-      {simulationFinished && matchPct !== null && (
-        <div className="text-xl text-center font-bold text-green-500">
-          {matchPct}% pixel match
-        </div>
-      )}
 
       {/* Action buttons */}
       <div className="flex flex-col items-center gap-3">
@@ -508,25 +576,12 @@ export default function App() {
               {busy ? "Predicting…" : "Predict"}
             </button>
           )}
-          {stage === 1 && (
-            <button disabled={busy} onClick={simulate} className={buttonPrimary}>
-              {busy ? "Loading…" : "Simulate"}
-            </button>
-          )}
           {simulationFinished && (
             <button onClick={reset} className={buttonSecondary}>
               Start over
             </button>
           )}
         </div>
-
-        {stage === 0 && (
-          <div className="flex flex-wrap items-center justify-center gap-3">
-            <button className={buttonGhost} onClick={reset} disabled={busy}>
-              Clear
-            </button>
-          </div>
-        )}
       </div>
     </div>
   );
