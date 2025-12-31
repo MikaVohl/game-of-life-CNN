@@ -1,12 +1,11 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import type { ChangeEvent } from "react";
 import "./App.css";
+import { predictWithCnn, simulateSteps, type Grid } from "./lifeModel";
 
-type Grid = number[][];
 const SIZE = 32;
 const STEPS = 5;
 const SIM_DELAY = 650;
-const API = import.meta.env.VITE_API_URL;
 
 function LifeGrid({
   grid,
@@ -97,16 +96,13 @@ export default function App() {
       return n;
     });
 
-  // API calls
+  // local inference + simulation
   const predict = async () => {
     setBusy(true);
+    setError("");
     try {
-      const res = await fetch(`${API}/predict`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ grid }),
-      });
-      const { prediction: p } = await res.json();
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+      const p = predictWithCnn(grid);
       setPrediction(p);
       setStage(1);
     } catch {
@@ -118,13 +114,10 @@ export default function App() {
 
   const simulate = async () => {
     setBusy(true);
+    setError("");
     try {
-      const res = await fetch(`${API}/simulate`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ grid, steps: STEPS }),
-      });
-      const { simulations } = await res.json();
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+      const simulations = simulateSteps(grid, STEPS);
       setFrames(simulations);
       setIdx(0);
       setAutoPlay(true);
