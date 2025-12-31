@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import type { ChangeEvent } from "react";
+import type { ChangeEvent, PointerEvent } from "react";
 import "./App.css";
 import { predictWithCnn, simulateSteps, type Grid } from "./lifeModel";
 
@@ -14,6 +14,7 @@ function LifeGrid({
   dimmed = false,
   onDown,
   onEnter,
+  onUp,
 }: {
   grid: Grid;
   cell?: number;
@@ -21,20 +22,149 @@ function LifeGrid({
   dimmed?: boolean;
   onDown?: (r: number, c: number) => void;
   onEnter?: (r: number, c: number) => void;
+  onUp?: () => void;
 }) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const activePointer = useRef<number | null>(null);
+  const lastCell = useRef<string | null>(null);
+  const strokeStarted = useRef(false);
+  const activeTouch = useRef(false);
+  const touchStarted = useRef(false);
+  const lastTouchCell = useRef<string | null>(null);
+
+  const resolveCell = (clientX: number, clientY: number) => {
+    const container = containerRef.current;
+    if (!container) return null;
+    const hit = document.elementFromPoint(clientX, clientY) as HTMLElement | null;
+    if (!hit) return null;
+    const cellEl = hit.closest?.("[data-life-cell='1']") as HTMLElement | null;
+    if (!cellEl || !container.contains(cellEl)) return null;
+    const r = Number(cellEl.dataset.r);
+    const c = Number(cellEl.dataset.c);
+    if (!Number.isFinite(r) || !Number.isFinite(c)) return null;
+    return { r, c, key: `${r}-${c}` };
+  };
+
+  const handlePointerDown = (event: PointerEvent<HTMLDivElement>) => {
+    if (!interactive) return;
+    if (event.pointerType === "touch") return;
+    event.preventDefault();
+    activePointer.current = event.pointerId;
+    lastCell.current = null;
+    strokeStarted.current = false;
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    const cellHit = resolveCell(event.clientX, event.clientY);
+    if (!cellHit) return;
+    lastCell.current = cellHit.key;
+    strokeStarted.current = true;
+    onDown?.(cellHit.r, cellHit.c);
+  };
+
+  const handlePointerMove = (event: PointerEvent<HTMLDivElement>) => {
+    if (!interactive || activePointer.current !== event.pointerId) return;
+    if (event.pointerType === "touch") return;
+    event.preventDefault();
+    const cellHit = resolveCell(event.clientX, event.clientY);
+    if (!cellHit || cellHit.key === lastCell.current) return;
+    lastCell.current = cellHit.key;
+    if (!strokeStarted.current) {
+      strokeStarted.current = true;
+      onDown?.(cellHit.r, cellHit.c);
+      return;
+    }
+    onEnter?.(cellHit.r, cellHit.c);
+  };
+
+  const handlePointerEnd = (event: PointerEvent<HTMLDivElement>) => {
+    if (event.pointerType === "touch") return;
+    if (activePointer.current !== event.pointerId) return;
+    activePointer.current = null;
+    lastCell.current = null;
+    strokeStarted.current = false;
+    if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    onUp?.();
+  };
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!interactive || !container) return;
+    const onTouchStart = (event: TouchEvent) => {
+      if (!interactive) return;
+      event.preventDefault();
+      activeTouch.current = true;
+      touchStarted.current = false;
+      lastTouchCell.current = null;
+      const touch = event.touches[0];
+      if (!touch) return;
+      const cellHit = resolveCell(touch.clientX, touch.clientY);
+      if (!cellHit) return;
+      lastTouchCell.current = cellHit.key;
+      touchStarted.current = true;
+      onDown?.(cellHit.r, cellHit.c);
+    };
+
+    const onTouchMove = (event: TouchEvent) => {
+      if (!interactive || !activeTouch.current) return;
+      event.preventDefault();
+      const touch = event.touches[0];
+      if (!touch) return;
+      const cellHit = resolveCell(touch.clientX, touch.clientY);
+      if (!cellHit || cellHit.key === lastTouchCell.current) return;
+      lastTouchCell.current = cellHit.key;
+      if (!touchStarted.current) {
+        touchStarted.current = true;
+        onDown?.(cellHit.r, cellHit.c);
+        return;
+      }
+      onEnter?.(cellHit.r, cellHit.c);
+    };
+
+    const onTouchEnd = (event: TouchEvent) => {
+      if (!interactive) return;
+      event.preventDefault();
+      activeTouch.current = false;
+      touchStarted.current = false;
+      lastTouchCell.current = null;
+      onUp?.();
+    };
+
+    container.addEventListener("touchstart", onTouchStart, { passive: false });
+    container.addEventListener("touchmove", onTouchMove, { passive: false });
+    container.addEventListener("touchend", onTouchEnd, { passive: false });
+    container.addEventListener("touchcancel", onTouchEnd, { passive: false });
+    return () => {
+      container.removeEventListener("touchstart", onTouchStart);
+      container.removeEventListener("touchmove", onTouchMove);
+      container.removeEventListener("touchend", onTouchEnd);
+      container.removeEventListener("touchcancel", onTouchEnd);
+    };
+  }, [interactive, onDown, onEnter, onUp, resolveCell]);
+
   return (
     <div
-      className={`inline-grid gap-[1px] border border-2 border-gray-300 ${dimmed && "opacity-60"}`}
-      style={{ gridTemplateColumns: `repeat(${grid.length}, ${cell}px)` }}
+      ref={containerRef}
+      className={`inline-grid gap-[1px] border border-2 border-gray-300 ${dimmed && "opacity-60"} ${interactive ? "select-none" : ""}`}
+      style={{
+        gridTemplateColumns: `repeat(${grid.length}, ${cell}px)`,
+        touchAction: interactive ? "none" : "auto",
+        WebkitUserSelect: interactive ? "none" : "auto",
+      }}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerEnd}
+      onPointerCancel={handlePointerEnd}
     >
       {grid.map((row, r) =>
         row.map((v, c) => (
           <div
             key={`${r}-${c}`}
-            style={{ width: cell, height: cell }}
+            data-life-cell="1"
+            data-r={r}
+            data-c={c}
+            style={{ width: cell, height: cell, touchAction: interactive ? "none" : "auto" }}
             className={v ? "bg-blue-600" : "bg-white"}
-            onMouseDown={() => interactive && onDown?.(r, c)}
-            onMouseEnter={() => interactive && onEnter?.(r, c)}
           />
         ))
       )}
@@ -85,8 +215,12 @@ export default function App() {
   const paintVal = useRef(1);
   useEffect(() => {
     const up = () => (drag.current = false);
-    window.addEventListener("mouseup", up);
-    return () => window.removeEventListener("mouseup", up);
+    window.addEventListener("pointerup", up);
+    window.addEventListener("pointercancel", up);
+    return () => {
+      window.removeEventListener("pointerup", up);
+      window.removeEventListener("pointercancel", up);
+    };
   }, []);
 
   const setCell = (r: number, c: number, v: number) =>
@@ -150,9 +284,8 @@ export default function App() {
     setAutoPlay(false);
   };
 
-  // reset
-  const reset = () => {
-    setGrid(empty());
+  const resetToGrid = (nextGrid: Grid) => {
+    setGrid(nextGrid);
     setPrediction(null);
     setFrames([]);
     setIdx(-1);
@@ -160,6 +293,8 @@ export default function App() {
     setError("");
     setAutoPlay(false);
   };
+
+  const reset = () => resetToGrid(empty());
 
   const leftGrid = stage === 2 ? frames[Math.max(0, idx)] : grid;
 
@@ -246,6 +381,9 @@ export default function App() {
               setCell(r, c, paintVal.current);
             }}
             onEnter={(r, c) => drag.current && stage === 0 && setCell(r, c, paintVal.current)}
+            onUp={() => {
+              drag.current = false;
+            }}
           />
 
           {/* playback controls */}
@@ -299,21 +437,31 @@ export default function App() {
       )}
 
       {/* Action buttons */}
-      <div className="flex justify-center gap-4">
+      <div className="flex flex-col items-center gap-3">
+        <div className="flex justify-center gap-4">
+          {stage === 0 && (
+            <button disabled={busy} onClick={predict} className="btn-primary">
+              {busy ? "Predicting…" : "Predict"}
+            </button>
+          )}
+          {stage === 1 && (
+            <button disabled={busy} onClick={simulate} className="btn-blue">
+              {busy ? "Loading…" : "Simulate"}
+            </button>
+          )}
+          {simulationFinished && (
+            <button onClick={reset} className="btn-secondary">
+              Start over
+            </button>
+          )}
+        </div>
+
         {stage === 0 && (
-          <button disabled={busy} onClick={predict} className="btn-primary">
-            {busy ? "Predicting…" : "Predict"}
-          </button>
-        )}
-        {stage === 1 && (
-          <button disabled={busy} onClick={simulate} className="btn-blue">
-            {busy ? "Loading…" : "Simulate"}
-          </button>
-        )}
-        {simulationFinished && (
-          <button onClick={reset} className="btn-secondary">
-            Start over
-          </button>
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            <button className="btn-gray" onClick={reset} disabled={busy}>
+              Clear
+            </button>
+          </div>
         )}
       </div>
     </div>
