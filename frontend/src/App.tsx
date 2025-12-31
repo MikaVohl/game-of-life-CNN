@@ -7,6 +7,13 @@ const SIZE = 32;
 const STEPS = 5;
 const SIM_DELAY = 650;
 
+const buttonBase =
+  "inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50";
+const buttonPrimary = `${buttonBase} bg-blue-600 text-white shadow-sm hover:bg-blue-700 focus-visible:ring-blue-500`;
+const buttonSecondary = `${buttonBase} bg-gray-100 text-gray-900 shadow-sm hover:bg-gray-200 focus-visible:ring-gray-400`;
+const buttonGhost = `${buttonBase} bg-white text-gray-700 ring-1 ring-gray-200 hover:bg-gray-50 focus-visible:ring-gray-300`;
+const buttonIcon = `${buttonBase} px-3 py-2 bg-white text-gray-700 ring-1 ring-gray-200 hover:bg-gray-50 focus-visible:ring-gray-300`;
+
 function LifeGrid({
   grid,
   cell = 12,
@@ -213,6 +220,7 @@ export default function App() {
   // drawing helpers
   const drag = useRef(false);
   const paintVal = useRef(1);
+  const lastPaintCell = useRef<{ r: number; c: number } | null>(null);
   useEffect(() => {
     const up = () => (drag.current = false);
     window.addEventListener("pointerup", up);
@@ -229,6 +237,49 @@ export default function App() {
       n[r][c] = v;
       return n;
     });
+
+  const linePoints = (from: { r: number; c: number }, to: { r: number; c: number }) => {
+    let x0 = from.c;
+    let y0 = from.r;
+    const x1 = to.c;
+    const y1 = to.r;
+    const points: Array<[number, number]> = [];
+
+    const dx = Math.abs(x1 - x0);
+    const sx = x0 < x1 ? 1 : -1;
+    const dy = -Math.abs(y1 - y0);
+    const sy = y0 < y1 ? 1 : -1;
+    let err = dx + dy;
+
+    while (true) {
+      if (y0 >= 0 && y0 < SIZE && x0 >= 0 && x0 < SIZE) {
+        points.push([y0, x0]);
+      }
+      if (x0 === x1 && y0 === y1) break;
+      const e2 = 2 * err;
+      if (e2 >= dy) {
+        err += dy;
+        x0 += sx;
+      }
+      if (e2 <= dx) {
+        err += dx;
+        y0 += sy;
+      }
+    }
+
+    return points;
+  };
+
+  const paintLine = (from: { r: number; c: number }, to: { r: number; c: number }, v: number) => {
+    const points = linePoints(from, to);
+    setGrid((g) => {
+      const n = g.map((row) => [...row]);
+      for (const [r, c] of points) {
+        n[r][c] = v;
+      }
+      return n;
+    });
+  };
 
   // local inference + simulation
   const predict = async () => {
@@ -378,11 +429,24 @@ export default function App() {
               if (busy || stage !== 0) return;
               drag.current = true;
               paintVal.current = grid[r][c] ? 0 : 1;
+              lastPaintCell.current = { r, c };
               setCell(r, c, paintVal.current);
             }}
-            onEnter={(r, c) => drag.current && stage === 0 && setCell(r, c, paintVal.current)}
+            onEnter={(r, c) => {
+              if (!drag.current || stage !== 0) return;
+              const last = lastPaintCell.current;
+              if (!last) {
+                lastPaintCell.current = { r, c };
+                setCell(r, c, paintVal.current);
+                return;
+              }
+              if (last.r === r && last.c === c) return;
+              paintLine(last, { r, c }, paintVal.current);
+              lastPaintCell.current = { r, c };
+            }}
             onUp={() => {
               drag.current = false;
+              lastPaintCell.current = null;
             }}
           />
 
@@ -398,19 +462,19 @@ export default function App() {
                 onChange={onSlider}
               />
               <div className="flex items-center gap-3">
-                <button className="btn-gray px-3" disabled={idx === 0} onClick={() => hop(-1)}>
+                <button className={buttonIcon} disabled={idx === 0} onClick={() => hop(-1)}>
                   ◀
                 </button>
                 {autoPlay ? (
-                  <button className="btn-gray px-4" onClick={() => setAutoPlay(false)}>
+                  <button className={buttonGhost} onClick={() => setAutoPlay(false)}>
                     ❚❚ Pause
                   </button>
                 ) : (
-                  <button className="btn-gray px-4" onClick={() => setAutoPlay(true)}>
+                  <button className={buttonGhost} onClick={() => setAutoPlay(true)}>
                     ▶ Play
                   </button>
                 )}
-                <button className="btn-gray px-3" disabled={idx === frames.length - 1} onClick={() => hop(1)}>
+                <button className={buttonIcon} disabled={idx === frames.length - 1} onClick={() => hop(1)}>
                   ▶
                 </button>
                 <span className="text-sm text-gray-600">
@@ -438,19 +502,19 @@ export default function App() {
 
       {/* Action buttons */}
       <div className="flex flex-col items-center gap-3">
-        <div className="flex justify-center gap-4">
+        <div className="flex flex-wrap justify-center gap-4">
           {stage === 0 && (
-            <button disabled={busy} onClick={predict} className="btn-primary">
+            <button disabled={busy} onClick={predict} className={buttonPrimary}>
               {busy ? "Predicting…" : "Predict"}
             </button>
           )}
           {stage === 1 && (
-            <button disabled={busy} onClick={simulate} className="btn-blue">
+            <button disabled={busy} onClick={simulate} className={buttonPrimary}>
               {busy ? "Loading…" : "Simulate"}
             </button>
           )}
           {simulationFinished && (
-            <button onClick={reset} className="btn-secondary">
+            <button onClick={reset} className={buttonSecondary}>
               Start over
             </button>
           )}
@@ -458,7 +522,7 @@ export default function App() {
 
         {stage === 0 && (
           <div className="flex flex-wrap items-center justify-center gap-3">
-            <button className="btn-gray" onClick={reset} disabled={busy}>
+            <button className={buttonGhost} onClick={reset} disabled={busy}>
               Clear
             </button>
           </div>
