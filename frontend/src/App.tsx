@@ -153,7 +153,7 @@ function LifeGrid({
 
   return (
     <div
-      className={`inline-block origin-top scale-[0.82] rounded-xl bg-[color:var(--card)] p-3 sm:scale-100 sm:p-4 ${
+      className={`inline-block origin-top rounded-xl bg-[color:var(--card)] p-3 sm:p-4 ${
         dimmed && "opacity-70"
       }`}
     >
@@ -232,6 +232,7 @@ export default function App() {
   const [error, setError] = useState("");
   const [toast, setToast] = useState("");
   const toastTimer = useRef<number | null>(null);
+  const [cellSize, setCellSize] = useState(CELL);
 
   // drawing helpers
   const drag = useRef(false);
@@ -271,6 +272,16 @@ export default function App() {
         window.clearTimeout(toastTimer.current);
       }
     };
+  }, []);
+
+  useEffect(() => {
+    const update = () => {
+      const isMobile = window.matchMedia("(max-width: 640px)").matches;
+      setCellSize(isMobile ? 10 : CELL);
+    };
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
   }, []);
 
   const isGridEmpty = (current: Grid) => {
@@ -488,7 +499,7 @@ export default function App() {
         <Card title={stage === 0 ? "Draw initial state" : "Simulation"}>
           <LifeGrid
             grid={leftGrid}
-            cell={CELL}
+            cell={cellSize}
             interactive={stage === 0 && !busy}
             dimmed={stage > 0}
             onDown={(r, c) => {
@@ -558,7 +569,7 @@ export default function App() {
         {/* Right card */}
         {stage !== 0 && (
           <Card title="Neural Network Prediction" placeholder="(awaiting prediction…)">
-            {prediction && <LifeGrid grid={prediction} cell={CELL} />}
+            {prediction && <LifeGrid grid={prediction} cell={cellSize} />}
             {simulationFinished && matchPct !== null && (
               <div className="mt-4 text-xl font-bold text-[color:var(--text)]">
                 {matchPct}% pixel match
