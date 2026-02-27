@@ -405,16 +405,21 @@ export default function App() {
 
   const leftGrid = stage === 2 ? frames[Math.max(0, idx)] : grid;
 
-  const matchPct = useMemo(() => {
+  const cellStats = useMemo(() => {
     if (stage !== 2 || !prediction || frames.length === 0) return null;
     const finalSim = frames[frames.length - 1];
-    let same = 0;
+    let tp = 0, fp = 0, fn = 0;
     for (let r = 0; r < SIZE; r++) {
       for (let c = 0; c < SIZE; c++) {
-        if (finalSim[r][c] === prediction[r][c]) same++;
+        const a = finalSim[r][c], b = prediction[r][c];
+        if (a && b) tp++;
+        else if (!a && b) fp++;
+        else if (a && !b) fn++;
       }
     }
-    return Math.round((same / (SIZE * SIZE)) * 100);
+    const union = tp + fp + fn;
+    const pct = union === 0 ? 100 : Math.round((tp / union) * 100);
+    return { pct, tp, fp, fn };
   }, [stage, frames, prediction]);
 
   const simulationFinished = stage === 2 && idx >= frames.length - 1 && !autoPlay;
@@ -570,9 +575,14 @@ export default function App() {
         {stage !== 0 && (
           <Card title="Neural Network Prediction" placeholder="(awaiting prediction…)">
             {prediction && <LifeGrid grid={prediction} cell={cellSize} />}
-            {simulationFinished && matchPct !== null && (
-              <div className="mt-4 text-xl font-bold text-[color:var(--text)]">
-                {matchPct}% pixel match
+            {simulationFinished && cellStats !== null && (
+              <div className="space-y-1 text-center">
+                <div className="text-xl font-bold text-[color:var(--text)]">
+                  {cellStats.pct}% cell accuracy
+                </div>
+                <div className="text-sm text-[color:var(--text)] opacity-60">
+                  ✓ {cellStats.tp} correct &nbsp;·&nbsp; ↗ {cellStats.fp} false positive &nbsp;·&nbsp; ↘ {cellStats.fn} missed
+                </div>
               </div>
             )}
           </Card>
